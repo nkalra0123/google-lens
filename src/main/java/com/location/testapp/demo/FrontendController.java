@@ -17,6 +17,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.*;
+import java.util.stream.Collectors;
 
 import com.google.cloud.vision.v1.*;
 import org.springframework.web.servlet.ModelAndView;
@@ -88,7 +89,19 @@ public class FrontendController {
             // After written to GCS, analyze the image.
             AnnotateImageResponse response =  analyzeImage(bucket + "/" + filename);
 
-            String value = response.toString();
+            Map<String, Float> imageLabels =
+                    response.getLabelAnnotationsList()
+                            .stream()
+                            .collect(
+                                    Collectors.toMap(
+                                            EntityAnnotation::getDescription,
+                                            EntityAnnotation::getScore,
+                                            (u, v) -> {
+                                                throw new IllegalStateException(String.format("Duplicate key %s", u));
+                                            },
+                                            LinkedHashMap::new));
+
+            String value = imageLabels.toString();
 
             return new ResponseEntity<String>(value,HttpStatus.OK);
         }
